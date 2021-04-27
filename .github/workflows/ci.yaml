@@ -1,0 +1,26 @@
+on:
+  push:
+    branches:
+    - $default-branch
+    tags:
+    - '[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: |
+        echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+        BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        IMAGE_NAME="bcinteractive/php-fpm"
+        VCS_REF="$(git rev-parse --short HEAD)"
+        IMAGE_TAG="$(git describe --abbrev=0 --tags)"
+        BRANCH="$(echo $IMAGE_TAG | grep -E -o "^[^.]+\.[^.]+")"
+        DOCKER_BUILDKIT=1 docker build \
+          --build-arg "BUILD_DATE=${BUILD_DATE}" \
+          --build-arg "VCS_REF=${VCS_REF}" \
+          --tag "${IMAGE_NAME}:${IMAGE_TAG}" \
+          --file "${BRANCH}/Dockerfile" \
+          .
+        docker push "${IMAGE_NAME}:${IMAGE_TAG}"
